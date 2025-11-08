@@ -1,0 +1,26 @@
+name: Validate JSON files
+
+on:
+  pull_request:
+    paths:
+      - "testnet/*.json"
+
+env:
+  NETWORKS: |
+    testnet
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          nets=$(echo "$NETWORKS" | tr '\n' '|' | sed 's/|$//' | sed 's/^/^(/;s/$/)\//')
+          files=$(git diff --name-only origin/${{ github.base_ref }}... | grep -E "${nets}.*\.json$" || true)
+          [ -z "$files" ] && echo "No validator files changed." && exit 0
+          for f in $files; do echo python scripts/validate.py "$f"; done
